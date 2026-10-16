@@ -34,12 +34,13 @@ describe("domainRuleFor", () => {
   });
 
   it("is not fooled by lookalike hosts, paths, user info or query strings", () => {
-    const r = rules({ exclude: ["example.com"] });
-    expect(domainRuleFor("https://badexample.com/", r)).toBeNull();
-    expect(domainRuleFor("https://example.com.evil.test/", r)).toBeNull();
-    expect(domainRuleFor("https://evil.test/example.com", r)).toBeNull();
-    expect(domainRuleFor("https://example.com@evil.test/", r)).toBeNull();
-    expect(domainRuleFor("https://evil.test/?u=https://example.com", r)).toBeNull();
+    const r = rules({ exclude: ["example.test"] });
+    expect(domainRuleFor("https://badexample.test/", r)).toBeNull();
+    expect(domainRuleFor("https://example.test.evil.test/", r)).toBeNull();
+    expect(domainRuleFor("https://evil.test/example.test", r)).toBeNull();
+    expect(domainRuleFor("https://example.test@evil.test/", r)).toBeNull();
+    expect(domainRuleFor("https://evil.test/?u=https://example.test", r)).toBeNull();
+    expect(domainRuleFor("https://www.example.test/", r)).toBe("exclude");
   });
 
   it("lets the most specific rule win, and excluding win a tie", () => {
