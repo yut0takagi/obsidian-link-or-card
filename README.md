@@ -1,5 +1,9 @@
 # Link or Card
 
+![Downloads](https://raw.githubusercontent.com/yut0takagi/obsidian-link-or-card/main/.github/stats/badge.svg)
+
+![Download history](https://raw.githubusercontent.com/yut0takagi/obsidian-link-or-card/main/.github/stats/downloads.svg)
+
 Paste a URL and pick how it lands in your note:
 
 | Choice | Result |
