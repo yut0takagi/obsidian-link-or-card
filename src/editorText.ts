@@ -135,6 +135,34 @@ export function findCardBlockAt(doc: LineSource, line: number): CardBlockAt | nu
 }
 
 /**
+ * Every closed fenced block whose info string is exactly `language`. A fence
+ * shown inside another code block, such as an example in ````markdown, is
+ * content of that block and is skipped.
+ */
+export function findFencedBlocks(doc: LineSource, language: string): CardBlockAt[] {
+  const blocks: CardBlockAt[] = [];
+  let open: { char: string; length: number; start: number; wanted: boolean } | null = null;
+  const lines = doc.lineCount();
+  for (let i = 0; i < lines; i++) {
+    const match = FENCE.exec(stripContainer(doc.getLine(i)));
+    if (match === null) continue;
+    const run = match[1] ?? "";
+    const info = (match[2] ?? "").trim();
+    if (open === null) {
+      open = { char: run.charAt(0), length: run.length, start: i, wanted: info === language };
+    } else if (run.charAt(0) === open.char && run.length >= open.length && info === "") {
+      if (open.wanted) {
+        const source: string[] = [];
+        for (let j = open.start + 1; j < i; j++) source.push(stripContainer(doc.getLine(j)));
+        blocks.push({ startLine: open.start, endLine: i, source: source.join("\n") });
+      }
+      open = null;
+    }
+  }
+  return blocks;
+}
+
+/**
  * Text that replaces line[from..to] with a fenced block. A fence must start
  * its own line, and inside a list item or blockquote every following line
  * needs the same indentation or `>` to stay in that container.
