@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePastedUrl, safeHttpUrl } from "../src/url";
+import { parseDroppedUrl, parsePastedUrl, safeHttpUrl } from "../src/url";
 
 describe("parsePastedUrl", () => {
   it("accepts a single http or https URL", () => {
@@ -37,5 +37,18 @@ describe("safeHttpUrl", () => {
     expect(safeHttpUrl("data:image/png;base64,AAAA")).toBeNull();
     expect(safeHttpUrl("not a url")).toBeNull();
     expect(safeHttpUrl(undefined)).toBeNull();
+  });
+});
+
+describe("parseDroppedUrl", () => {
+  it("takes the one URL of a text/uri-list, skipping comment lines", () => {
+    expect(parseDroppedUrl("https://example.com/a")).toBe("https://example.com/a");
+    expect(parseDroppedUrl("# dragged from a browser\r\nhttps://example.com/a\r\n")).toBe("https://example.com/a");
+  });
+
+  it("refuses several URLs, other schemes and an empty list", () => {
+    expect(parseDroppedUrl("https://example.com/a\r\nhttps://example.com/b")).toBeNull();
+    expect(parseDroppedUrl("obsidian://open?vault=x")).toBeNull();
+    expect(parseDroppedUrl("")).toBeNull();
   });
 });

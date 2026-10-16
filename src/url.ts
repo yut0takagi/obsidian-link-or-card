@@ -17,3 +17,16 @@ export function parsePastedUrl(text: string): string | null {
   if (!/^https?:\/\/\S+$/i.test(trimmed)) return null;
   return safeHttpUrl(trimmed);
 }
+
+/**
+ * A link dragged from a browser carries `text/uri-list`. Text dragged within
+ * the editor carries only `text/plain`, so reading the list alone keeps the
+ * menu away from ordinary drag-and-drop editing.
+ */
+export function parseDroppedUrl(uriList: string): string | null {
+  const uris = uriList
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== "" && !line.startsWith("#"));
+  return uris.length === 1 ? parsePastedUrl(uris[0] ?? "") : null;
+}
