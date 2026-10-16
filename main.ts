@@ -1,6 +1,6 @@
 import { MarkdownView, Menu, Notice, Plugin, moment, requestUrl } from "obsidian";
 import type { Editor, EditorPosition, MarkdownFileInfo, MarkdownPostProcessorContext } from "obsidian";
-import { CARD_LANGUAGE, emptyCardFields, formatCardBlock, mergeCardData, parseCardBlock, sameCardData } from "./src/cardBlock";
+import { CARD_LANGUAGE, formatCardBlock, parseCardBlock } from "./src/cardBlock";
 import type { CardData } from "./src/cardBlock";
 import { renderCard } from "./src/cardView";
 import { conversionsFor } from "./src/choices";
@@ -22,12 +22,14 @@ import { getStrings } from "./src/i18n";
 import type { Strings } from "./src/i18n";
 import { formatMarkdownLink } from "./src/markdownLink";
 import { cardlinkConversions } from "./src/migrate";
+import { planRefresh } from "./src/refresh";
+import type { RefreshMode } from "./src/refresh";
 import { decidePaste, parseDomainList } from "./src/pasteRules";
 import type { DomainRules } from "./src/pasteRules";
 import { DEFAULT_SETTINGS, LinkOrCardSettingTab } from "./src/settings";
 import type { LinkOrCardSettings } from "./src/settings";
 import { truncateTitle } from "./src/title";
-import { parseDroppedUrl, parsePastedUrl, safeHttpUrl } from "./src/url";
+import { displayHost, isPrivateUrl, parseDroppedUrl, parsePastedUrl, safeHttpUrl } from "./src/url";
 
 type Target =
   | { kind: "bare"; from: EditorPosition; to: EditorPosition; url: string }
@@ -35,6 +37,8 @@ type Target =
   | { kind: "card"; from: EditorPosition; to: EditorPosition; data: CardData };
 
 type CardTarget = Extract<Target, { kind: "card" }>;
+
+const urlOf = (target: Target): string => (target.kind === "card" ? target.data.url : target.url);
 
 interface EditorContext {
   editor: Editor;
@@ -183,6 +187,7 @@ export default class LinkOrCardPlugin extends Plugin {
   private addEditorMenuItems(menu: Menu, context: EditorContext): void {
     const target = this.targetAt(context.editor, context.editor.getCursor());
     if (target === null) return;
+    this.addPrivateLabel(menu, urlOf(target));
     this.addStyleItems(menu, context, target, this.conversions(context.editor, target), this.convertLabels());
     if (target.kind === "card") this.addRefreshItems(menu, context, target);
   }
@@ -199,6 +204,7 @@ export default class LinkOrCardPlugin extends Plugin {
     event.stopPropagation();
     const context = { editor: view.editor, info: view };
     const menu = new Menu();
+    this.addPrivateLabel(menu, target.data.url);
     this.addStyleItems(menu, context, target, conversionsFor("card", false), this.convertLabels());
     this.addRefreshItems(menu, context, target);
     menu.showAtMouseEvent(event);
@@ -206,6 +212,7 @@ export default class LinkOrCardPlugin extends Plugin {
 
   private showMenuAtCursor(context: EditorContext, target: Target, styles: Style[], labels: Record<Style, string>): void {
     const menu = new Menu();
+    this.addPrivateLabel(menu, urlOf(target));
     this.addStyleItems(menu, context, target, styles, labels);
     const cm = codeMirror(context.editor);
     const coords = cm?.coordsAtPos(context.editor.posToOffset(target.to));
@@ -230,6 +237,16 @@ export default class LinkOrCardPlugin extends Plugin {
     }
   }
 
+  /**
+   * Fetching a local address is allowed when the user picks it, but the menu
+   * says so, since a page there may not be meant to end up in a note.
+   */
+  private addPrivateLabel(menu: Menu, url: string): void {
+    if (!isPrivateUrl(url)) return;
+    const title = this.strings.menuPrivateAddress.replace("{host}", displayHost(url));
+    menu.addItem((item) => item.setTitle(title).setIcon("shield-alert").setIsLabel(true));
+  }
+
   private addRefreshItems(menu: Menu, context: EditorContext, target: CardTarget): void {
     menu.addItem((item) =>
       item
@@ -245,7 +262,7 @@ export default class LinkOrCardPlugin extends Plugin {
     );
   }
 
-  private withCardAtCursor(context: EditorContext, mode: "fill" | "replace"): void {
+  private withCardAtCursor(context: EditorContext, mode: RefreshMode): void {
     const target = this.targetAt(context.editor, context.editor.getCursor());
     if (target?.kind !== "card") {
       new Notice(this.strings.noCardAtCursor);
@@ -329,46 +346,51 @@ export default class LinkOrCardPlugin extends Plugin {
   }
 
   /**
-   * Re-reads the page for a card. "fill" only adds what the card is missing, so
-   * nothing is fetched when it has no empty field; "replace" asks first, since
-   * it overwrites hand edits.
+   * Re-reads the page for a card. planRefresh decides whether a request may be
+   * sent at all: never without confirming the host, never to a local address.
    */
-  private async refreshCard(context: EditorContext, target: CardTarget, mode: "fill" | "replace"): Promise<void> {
+  private async refreshCard(context: EditorContext, target: CardTarget, mode: RefreshMode): Promise<void> {
     const { editor } = context;
-    const current = target.data;
-    if (mode === "fill" && emptyCardFields(current).length === 0) {
-      new Notice(this.strings.refreshNothingEmpty);
-      return;
-    }
-    if (mode === "replace") {
-      const confirmed = await confirmAction(this.app, {
-        title: this.strings.confirmRefetchTitle,
-        message: this.strings.confirmRefetchBody,
-        confirmText: this.strings.confirmRefetchButton,
-        cancelText: this.strings.cancel,
-      });
-      if (!confirmed) return;
-    }
-
     const original = editor.getRange(target.from, target.to);
     const path = context.info.file?.path;
-    const meta = this.withTitleLimit(await this.fetchWithNotice(current.url));
-    if (meta === null) {
-      new Notice(this.strings.refreshFailed);
-      return;
+    const t = this.strings;
+    const outcome = await planRefresh(target.data, mode, {
+      confirm: ({ host }) =>
+        confirmAction(this.app, {
+          title: mode === "fill" ? t.confirmRefreshTitle : t.confirmRefetchTitle,
+          message: (mode === "fill" ? t.confirmRefreshBody : t.confirmRefetchBody).replace("{host}", host),
+          confirmText: mode === "fill" ? t.confirmRefreshButton : t.confirmRefetchButton,
+          cancelText: t.cancel,
+        }),
+      fetch: async (url) => this.withTitleLimit(await this.fetchWithNotice(url)),
+    });
+
+    switch (outcome.kind) {
+      case "nothing-empty":
+        new Notice(t.refreshNothingEmpty);
+        return;
+      case "private":
+        new Notice(t.refreshPrivate.replace("{host}", outcome.host));
+        return;
+      case "cancelled":
+        return;
+      case "failed":
+        new Notice(t.refreshFailed);
+        return;
+      case "unchanged":
+        new Notice(t.refreshNoChange);
+        return;
+      case "updated":
+        break;
     }
+
     const range = context.info.file?.path === path ? this.relocate(editor, original, target.from) : null;
     if (range === null) {
-      new Notice(this.strings.cardMoved);
-      return;
-    }
-    const merged = mergeCardData(current, meta, mode);
-    if (sameCardData(merged, current)) {
-      new Notice(this.strings.refreshNoChange);
+      new Notice(t.cardMoved);
       return;
     }
     const line = editor.getLine(range.from.line);
-    editor.replaceRange(blockReplacement(line, range.from.ch, line.length, formatCardBlock(merged)), range.from, range.to);
+    editor.replaceRange(blockReplacement(line, range.from.ch, line.length, formatCardBlock(outcome.data)), range.from, range.to);
   }
 
   /** One undoable edit for the whole note; blocks that could not be read are reported and left alone. */

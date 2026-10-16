@@ -40,6 +40,8 @@ The menu does not appear when the paste is clearly something else:
 
 Inside a table, **Card** is not offered: a card is a multi-line block and would split the row. **Link** and **Plain URL** work as usual.
 
+When the URL points to this computer or a local network (such as `localhost`, `*.local`, `*.internal` or a private IP address), the menu says so at the top, so fetching it is a deliberate choice.
+
 ### Changing it later
 
 - **Right-click** a URL, a Markdown link or a rendered card and choose *Convert to card*, *Convert to link* or *Convert to plain URL*.
@@ -52,7 +54,9 @@ Converting a card to a link reuses the title stored in the card, so no request i
 If a card was made while the site was down, or the page has changed, right-click the card:
 
 - **Refresh card** fetches the page again and fills in only the fields the card is missing. Anything already in the card, including text you edited, stays as it is.
-- **Refetch all card fields…** asks first, then overwrites the card with what the page provides now. Fields the page no longer has are kept.
+- **Refetch all card fields…** overwrites the card with what the page provides now. Fields the page no longer has are kept.
+
+Both ask first and name the site that will be contacted, since a card in a shared or synced vault may have been written by someone else. Cards that point to a private or local address (loopback, private and link-local IP ranges, `localhost`, `*.localhost`, `*.local`, `*.internal`, or a name without a dot) are not refreshed. To fetch such a page anyway, convert the card to a plain URL and back to a card.
 
 The same actions are available as the commands **Refresh card at cursor** and **Refetch all fields of the card at cursor**.
 
@@ -93,7 +97,7 @@ Domain lists take one site per line. A site also covers its subdomains, so `exam
 
 ## Network use
 
-To build a card or a titled link, or to refresh a card, the plugin sends one `GET` request to that URL, using Obsidian's `requestUrl`, and reads the page's `<title>`, Open Graph and Twitter card tags. Nothing is sent anywhere else, and no request is made when you choose **Plain URL**, close the menu, or convert Auto Card Link blocks.
+To build a card or a titled link, or to refresh a card after you confirm it, the plugin sends one `GET` request to that URL, using Obsidian's `requestUrl`, and reads the page's `<title>`, Open Graph and Twitter card tags. Nothing is sent anywhere else, and no request is made when you choose **Plain URL**, close the menu, or convert Auto Card Link blocks.
 
 Card images and icons are loaded from the sites that host them, with `referrerpolicy="no-referrer"`.
 

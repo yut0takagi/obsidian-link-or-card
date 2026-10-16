@@ -6,7 +6,8 @@ All notable changes to Link or Card are listed here.
 
 ### Added
 
-- **Refresh card** and **Refetch all card fields…** in the card's right-click menu, plus matching commands. Refresh fills in only the fields a card is missing, so hand edits stay; refetching overwrites the card after asking.
+- **Refresh card** and **Refetch all card fields…** in the card's right-click menu, plus matching commands. Refresh fills in only the fields a card is missing, so hand edits stay; refetching overwrites the card. Both ask first and name the site, and cards that point to a private or local address are not refreshed.
+- Menus for a URL that points to a private or local address say so.
 - **Domains to leave alone**, **Always make a card** and **Always make a link** settings. Hosts are matched whole, including subdomains, and the most specific entry wins.
 - **Maximum title length** setting for titles taken from a page.
 - **Convert Auto Card Link blocks in this note** command, which turns ```` ```cardlink ```` blocks into ```` ```linkcard ```` blocks without contacting the sites. Blocks it cannot read safely are left as they are.

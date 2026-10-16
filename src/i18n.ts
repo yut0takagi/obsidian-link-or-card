@@ -24,7 +24,16 @@ export interface Strings {
   refreshNoChange: string;
   cardMoved: string;
   cardInTable: string;
+  /** `{host}` is replaced with the card's host. */
+  refreshPrivate: string;
+  /** `{host}` is replaced with the URL's host. */
+  menuPrivateAddress: string;
+  confirmRefreshTitle: string;
+  /** `{host}` is replaced with the host that will be fetched. */
+  confirmRefreshBody: string;
+  confirmRefreshButton: string;
   confirmRefetchTitle: string;
+  /** `{host}` is replaced with the host that will be fetched. */
   confirmRefetchBody: string;
   confirmRefetchButton: string;
   cancel: string;
@@ -72,9 +81,15 @@ const en: Strings = {
   refreshNoChange: "The page had nothing new for this card.",
   cardMoved: "The card was edited while the page was loading, so nothing was changed.",
   cardInTable: "A card can't go inside a table, so the URL was left as it is.",
+  refreshPrivate:
+    "{host} is a private or local address, so the card was not refreshed. To fetch it anyway, convert the card to a plain URL and back to a card.",
+  menuPrivateAddress: "Private or local address: {host}",
+  confirmRefreshTitle: "Refresh this card?",
+  confirmRefreshBody: "This sends one request to {host} and fills in only the card's empty fields.",
+  confirmRefreshButton: "Fetch",
   confirmRefetchTitle: "Refetch all card fields?",
   confirmRefetchBody:
-    "What the page provides now will replace the card's fields, including text you edited by hand. Fields the page no longer has are kept.",
+    "This sends one request to {host} and replaces the card's fields with what the page provides now, including text you edited by hand. Fields the page no longer has are kept.",
   confirmRefetchButton: "Refetch",
   cancel: "Cancel",
   commandMigrate: "Convert Auto Card Link blocks in this note",
@@ -119,8 +134,15 @@ const ja: Strings = {
   refreshNoChange: "ページに新しい情報はありませんでした。",
   cardMoved: "取得中にカードが編集されたので、更新を取りやめました。",
   cardInTable: "表の中にはカードを置けないので、URLのままにしました。",
+  refreshPrivate:
+    "{host} は社内向けまたはローカルのアドレスなので、カードを更新しませんでした。取得するときは、いったんURLに戻してからカードにし直してください。",
+  menuPrivateAddress: "社内向けのアドレスです: {host}",
+  confirmRefreshTitle: "カードを更新しますか？",
+  confirmRefreshBody: "{host} に 1 回アクセスして、カードの空欄だけを埋めます。",
+  confirmRefreshButton: "取得する",
   confirmRefetchTitle: "カードを取り直しますか？",
-  confirmRefetchBody: "いまのページの情報でカードの項目を上書きします。手で書き換えた内容も上書きされます。ページにない項目はそのまま残します。",
+  confirmRefetchBody:
+    "{host} に 1 回アクセスして、いまのページの情報でカードの項目を上書きします。手で書き換えた内容も上書きされます。ページにない項目はそのまま残します。",
   confirmRefetchButton: "取り直す",
   cancel: "キャンセル",
   commandMigrate: "このノートの Auto Card Link のブロックを変換",
