@@ -10,7 +10,7 @@ export interface CardData {
   site?: string;
 }
 
-type CardField = keyof CardData;
+export type CardField = keyof CardData;
 
 const FIELDS: readonly CardField[] = ["url", "title", "description", "image", "favicon", "site"];
 
@@ -52,4 +52,29 @@ export function parseCardBlock(source: string): CardData | null {
     if (value !== "") data[key] = value;
   }
   return data.url === undefined ? null : { ...data, url: data.url };
+}
+
+/**
+ * "fill" adds only what the card is missing, so titles edited by hand stay.
+ * "replace" takes everything the page provides now, but a field the page no
+ * longer has is kept rather than wiped. The url is the card's identity and
+ * never changes.
+ */
+export function mergeCardData(current: CardData, fetched: CardData, mode: "fill" | "replace"): CardData {
+  const merged: CardData = { url: current.url };
+  for (const key of FIELDS) {
+    if (key === "url") continue;
+    const value = mode === "fill" ? (current[key] ?? fetched[key]) : (fetched[key] ?? current[key]);
+    if (value !== undefined) merged[key] = value;
+  }
+  return merged;
+}
+
+/** Fields a refresh could fill in. */
+export function emptyCardFields(data: CardData): CardField[] {
+  return FIELDS.filter((key) => key !== "url" && data[key] === undefined);
+}
+
+export function sameCardData(a: CardData, b: CardData): boolean {
+  return FIELDS.every((key) => a[key] === b[key]);
 }

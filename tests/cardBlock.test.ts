@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARD_LANGUAGE, formatCardBlock, parseCardBlock } from "../src/cardBlock";
+import { CARD_LANGUAGE, emptyCardFields, formatCardBlock, mergeCardData, parseCardBlock, sameCardData } from "../src/cardBlock";
 
 describe("formatCardBlock", () => {
   it("writes a fenced block with one key per line, skipping empty fields", () => {
@@ -50,5 +50,56 @@ describe("parseCardBlock", () => {
 
   it("returns null when url is missing", () => {
     expect(parseCardBlock("title: no url")).toBeNull();
+  });
+});
+
+describe("mergeCardData", () => {
+  const current = { url: "https://example.com/a", title: "My own title", image: "https://example.com/old.png", site: "Example" };
+  const fetched = {
+    url: "https://example.com/a",
+    title: "Page title",
+    description: "Desc",
+    image: "https://example.com/new.png",
+    favicon: "https://example.com/f.ico",
+  };
+
+  it("fills only the empty fields, so hand edits survive", () => {
+    expect(mergeCardData(current, fetched, "fill")).toEqual({
+      url: "https://example.com/a",
+      title: "My own title",
+      description: "Desc",
+      image: "https://example.com/old.png",
+      favicon: "https://example.com/f.ico",
+      site: "Example",
+    });
+  });
+
+  it("overwrites what the page provided when replacing, and keeps what it no longer has", () => {
+    expect(mergeCardData(current, fetched, "replace")).toEqual({ ...fetched, site: "Example" });
+  });
+
+  it("never changes the url, even if the page reports another one", () => {
+    const moved = { ...fetched, url: "https://example.org/elsewhere" };
+    expect(mergeCardData(current, moved, "replace").url).toBe("https://example.com/a");
+    expect(mergeCardData(current, moved, "fill").url).toBe("https://example.com/a");
+  });
+});
+
+describe("emptyCardFields", () => {
+  it("lists the fields a refresh could fill, never the url", () => {
+    expect(emptyCardFields({ url: "https://example.com", title: "T", image: "https://example.com/i.png" })).toEqual([
+      "description",
+      "favicon",
+      "site",
+    ]);
+    expect(emptyCardFields({ url: "https://example.com", title: "T", description: "D", image: "i", favicon: "f", site: "S" })).toEqual([]);
+  });
+});
+
+describe("sameCardData", () => {
+  it("compares every field", () => {
+    expect(sameCardData({ url: "https://example.com", title: "T" }, { title: "T", url: "https://example.com" })).toBe(true);
+    expect(sameCardData({ url: "https://example.com", title: "T" }, { url: "https://example.com", title: "U" })).toBe(false);
+    expect(sameCardData({ url: "https://example.com" }, { url: "https://example.com", site: "S" })).toBe(false);
   });
 });
