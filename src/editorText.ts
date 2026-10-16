@@ -35,6 +35,27 @@ export function isInsideFrontmatter(doc: LineSource, line: number): boolean {
   return false;
 }
 
+const TABLE_DELIMITER = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
+
+/** `| --- | :-: |`. The pipe is required, since a bare `---` is a heading underline or a rule. */
+const isDelimiterRow = (row: string): boolean => row.includes("|") && TABLE_DELIMITER.test(row);
+
+/**
+ * Whether the line is a row of a Markdown table: the header above a delimiter
+ * row, the delimiter itself, or one of the piped rows that follow it.
+ */
+export function isInsideTable(doc: LineSource, line: number): boolean {
+  const row = (i: number) => stripContainer(doc.getLine(i)).trim();
+  if (!row(line).includes("|")) return false;
+  if (line + 1 < doc.lineCount() && isDelimiterRow(row(line + 1))) return true;
+  for (let i = line; i >= 1; i--) {
+    const text = row(i);
+    if (!text.includes("|")) return false;
+    if (isDelimiterRow(text)) return row(i - 1).includes("|");
+  }
+  return false;
+}
+
 /** Whether a URL pasted at (line, ch) is prose we may restyle, rather than part of other syntax. */
 export function canTransformPaste(doc: LineSource, line: number, ch: number): boolean {
   const text = doc.getLine(line);

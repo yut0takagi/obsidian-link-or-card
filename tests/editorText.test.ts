@@ -6,6 +6,7 @@ import {
   findLinkAt,
   isInsideCodeFence,
   isInsideFrontmatter,
+  isInsideTable,
   locateNearest,
 } from "../src/editorText";
 
@@ -66,6 +67,31 @@ describe("canTransformPaste", () => {
     expect(canTransformPaste(doc("[title]("), 0, 8)).toBe(false);
     expect(canTransformPaste(doc("<"), 0, 1)).toBe(false);
     expect(canTransformPaste(doc('<img src="'), 0, 10)).toBe(false);
+  });
+});
+
+describe("isInsideTable", () => {
+  const table = doc("before\n\n| a | b |\n| :-- | --: |\n| x |  |\n| y | z |\n\nafter | pipe");
+
+  it("covers the header, the delimiter row and every body row", () => {
+    for (const line of [2, 3, 4, 5]) expect(isInsideTable(table, line)).toBe(true);
+  });
+
+  it("ends at a blank line and ignores pipes in ordinary prose", () => {
+    expect(isInsideTable(table, 0)).toBe(false);
+    expect(isInsideTable(table, 6)).toBe(false);
+    expect(isInsideTable(table, 7)).toBe(false);
+    expect(isInsideTable(doc("a | b\nc | d"), 1)).toBe(false);
+  });
+
+  it("finds tables without outer pipes and inside blockquotes", () => {
+    expect(isInsideTable(doc("a | b\n--- | ---\nx | y"), 2)).toBe(true);
+    expect(isInsideTable(doc("> | a |\n> | --- |\n> | x |"), 2)).toBe(true);
+  });
+
+  it("does not read a setext heading or a thematic break as a table", () => {
+    expect(isInsideTable(doc("a | b\n---"), 0)).toBe(false);
+    expect(isInsideTable(doc("text\n---\nmore"), 2)).toBe(false);
   });
 });
 
