@@ -35,6 +35,27 @@ export function isInsideFrontmatter(doc: LineSource, line: number): boolean {
   return false;
 }
 
+const TABLE_DELIMITER = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
+
+/** `| --- | :-: |`. The pipe is required, since a bare `---` is a heading underline or a rule. */
+const isDelimiterRow = (row: string): boolean => row.includes("|") && TABLE_DELIMITER.test(row);
+
+/**
+ * Whether the line is a row of a Markdown table: the header above a delimiter
+ * row, the delimiter itself, or one of the piped rows that follow it.
+ */
+export function isInsideTable(doc: LineSource, line: number): boolean {
+  const row = (i: number) => stripContainer(doc.getLine(i)).trim();
+  if (!row(line).includes("|")) return false;
+  if (line + 1 < doc.lineCount() && isDelimiterRow(row(line + 1))) return true;
+  for (let i = line; i >= 1; i--) {
+    const text = row(i);
+    if (!text.includes("|")) return false;
+    if (isDelimiterRow(text)) return row(i - 1).includes("|");
+  }
+  return false;
+}
+
 /** Whether a URL pasted at (line, ch) is prose we may restyle, rather than part of other syntax. */
 export function canTransformPaste(doc: LineSource, line: number, ch: number): boolean {
   const text = doc.getLine(line);
@@ -111,6 +132,34 @@ export function findCardBlockAt(doc: LineSource, line: number): CardBlockAt | nu
   const source: string[] = [];
   for (let i = start + 1; i < end; i++) source.push(at(i));
   return { startLine: start, endLine: end, source: source.join("\n") };
+}
+
+/**
+ * Every closed fenced block whose info string is exactly `language`. A fence
+ * shown inside another code block, such as an example in ````markdown, is
+ * content of that block and is skipped.
+ */
+export function findFencedBlocks(doc: LineSource, language: string): CardBlockAt[] {
+  const blocks: CardBlockAt[] = [];
+  let open: { char: string; length: number; start: number; wanted: boolean } | null = null;
+  const lines = doc.lineCount();
+  for (let i = 0; i < lines; i++) {
+    const match = FENCE.exec(stripContainer(doc.getLine(i)));
+    if (match === null) continue;
+    const run = match[1] ?? "";
+    const info = (match[2] ?? "").trim();
+    if (open === null) {
+      open = { char: run.charAt(0), length: run.length, start: i, wanted: info === language };
+    } else if (run.charAt(0) === open.char && run.length >= open.length && info === "") {
+      if (open.wanted) {
+        const source: string[] = [];
+        for (let j = open.start + 1; j < i; j++) source.push(stripContainer(doc.getLine(j)));
+        blocks.push({ startLine: open.start, endLine: i, source: source.join("\n") });
+      }
+      open = null;
+    }
+  }
+  return blocks;
 }
 
 /**
